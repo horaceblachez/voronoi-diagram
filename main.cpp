@@ -221,6 +221,28 @@ public:
         //      For all other sites Pj (optionally, only k nearest neighbors) :
         //          Clip it with bisector of [Pi,Pj]
         //      (Lab 3, fluids) : also clip it by a disk of radius sqrt(w_i - w_air) centered at Pi
+
+
+        cells.resize(points.size());
+
+        for(int i=0; i<points.size(); i++){
+            Polygon cellcur;
+            cellcur.vertices.resize(0);
+            cellcur.vertices.push_back(Vector(0, 0));
+            cellcur.vertices.push_back(Vector(1, 0));
+            cellcur.vertices.push_back(Vector(1, 1));
+            cellcur.vertices.push_back(Vector(0, 1));
+
+            for(int j=0;j<points.size();j++){
+                if(i!=j){
+                    cellcur=clip_by_bisector(cellcur,points[i],points[j],0,0);
+                }
+            }
+            cells[i]=cellcur;
+        }
+
+
+
     }
 
 
@@ -240,9 +262,48 @@ public:
         // TODO Lab 1 (Voronoi) : in Lab 1, we assume w0 = w1 = 0
         // Clip a polygon by the bisector of the segment defined by P0 (the current site of the Voronoi cell being computed) and Pi (another site)
         
-        // TODO Lab 2 (Semi-Discrete Optimal Transport) : extend to Laguerre cells, i.e., w0 != w1
+        Vector Mid=(P0+Pi)/ 2;
 
+        size_t N= V.vertices.size();
         Polygon result;
+        
+        for(int i=0; i<N; i++){
+            
+            Vector curr = V.vertices[i];
+            Vector prev = V.vertices[(i > 0)? (i - 1): (N - 1)];
+            double prevside = dot(prev - Mid, Pi - P0);
+            double curside = dot(curr - Mid, Pi - P0);
+            
+            
+            if(prevside<0 && curside<0){
+                result.vertices.push_back(curr);
+            }
+            
+            if(prevside<0 && curside>=0){
+                double t= dot(Mid-prev,Pi-P0)/ dot(curr-prev,Pi-P0);
+                Vector inters= prev+t*(curr-prev);
+                result.vertices.push_back(inters);
+            }
+
+            if(prevside>=0 && curside<0){
+                double t= dot(Mid-prev,Pi-P0)/ dot(curr-prev,Pi-P0);
+                Vector inters= prev+t*(curr-prev);
+                result.vertices.push_back(inters);
+                result.vertices.push_back(curr);
+            }
+            
+            
+            
+
+
+
+        }
+        
+
+        
+
+
+        // TODO Lab 2 (Semi-Discrete Optimal Transport) : extend to Laguerre cells, i.e., w0 != w1
 
         return result;
     }
@@ -373,6 +434,7 @@ public:
 
 int main() {
 
+    /*
     Polygon p;
     p.vertices.push_back(Vector(0.1, 0.2));
     p.vertices.push_back(Vector(0.6, 0.4));
@@ -381,8 +443,18 @@ int main() {
 
     std::vector<Polygon> s;
     s.push_back(p);
+    */
 
-    save_frame(s, "toto");
-    save_svg(s, "toto.svg");
+   VoronoiDiagram V;
+   V.points.resize(4);
+   V.points.push_back(Vector(0.1, 0.2));
+   V.points.push_back(Vector(0.6, 0.4));
+   V.points.push_back(Vector(0.5, 0.7));
+   V.points.push_back(Vector(0.2, 0.5));
+   V.compute();
+    
+
+    save_frame(V.cells, "toto");
+    save_svg(V.cells, "toto.svg");
     return 0;
 }
