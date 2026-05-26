@@ -59,9 +59,13 @@ public:
 
     double area() {
         if (vertices.size() < 3) return 0;
-        // TODO Lab 3
-        // Compute the area of the polygon
-        return -111;
+        double A=0;
+        int N=vertices.size();
+        for(int i=0;i<N; i++){
+            int ip1=(i+1) %N;
+            A+=vertices[i][0]* vertices[ip1][1] -vertices[ip1][0]* vertices[i][1];
+        }
+        return std::abs(A)/2.0;
     }
 
     Vector centroid() {
@@ -75,10 +79,26 @@ public:
     double integral_square_distance(const Vector& Pi) {
         if (vertices.size() < 3) return 0;
 
-        // TODO Lab 3
-        // Compute the integral of ||x-Pi||^2 over the polygon
 
-        return -111;
+        double result=0;
+
+        int N= vertices.size();
+        for(int j=1;j<N-1 ; j++){
+            Vector c[3]={vertices[0],vertices[j],vertices[j+1]};
+            double triarea=0.5*std::abs((c[1][0]-c[0][0])*(c[2][1]-c[0][1])-(c[2][0]-c[0][0])*(c[1][1]-c[0][1]));
+            double sumDots=0;
+
+            for(int k=0;k<3;k++){
+                for(int l=k;l<3;l++){
+
+                    sumDots+=dot(c[k]-Pi,c[l]-Pi);
+
+
+                }
+            }
+            result+=triarea/6.0*sumDots;
+        }
+        return result;
     }
 
     std::vector<Vector> vertices;
@@ -235,7 +255,7 @@ public:
 
             for(int j=0;j<points.size();j++){
                 if(i!=j){
-                    cellcur=clip_by_bisector(cellcur,points[i],points[j],0,0);
+                    cellcur=clip_by_bisector(cellcur,points[i],points[j],weights[i],weights[j]);;
                 }
             }
             cells[i]=cellcur;
@@ -262,7 +282,8 @@ public:
         // TODO Lab 1 (Voronoi) : in Lab 1, we assume w0 = w1 = 0
         // Clip a polygon by the bisector of the segment defined by P0 (the current site of the Voronoi cell being computed) and Pi (another site)
         
-        Vector Mid=(P0+Pi)/ 2;
+        Vector Mid=(P0+Pi)/ 2 + (w0-wi)/(2.0*(Pi-P0).norm2())*(Pi-P0);
+
 
         size_t N= V.vertices.size();
         Polygon result;
@@ -350,11 +371,25 @@ static lbfgsfloatval_t evaluate(
     // Lab 3 (fluid) : adapt these functions to support partial optimal transport (now "n" has been increased by 1 to account for the air variable)
     
     lbfgsfloatval_t fx = 0.0;
-    // g[i] = ...
-    // fx = ...
+    double lambda_i=1.0/(double)n;
 
-    return fx;
+    
+
+    for(int i=0;i< n; i++){
+
+        double cell_area=ot->vor.cells[i].area();
+        double integral=ot->vor.cells[i].integral_square_distance(ot->vor.points[i]);
+
+
+
+        fx+=(integral - x[i]*cell_area + lambda_i *x[i]);
+
+        g[i]=-(lambda_i-cell_area);
+    }
+
+    return -fx;
 }
+
 
 // Labs 2 and 3 : you may use this function to print debugging info.
 static int progress(
@@ -434,7 +469,7 @@ public:
 
 int main() {
 
-    /*
+     /*
     Polygon p;
     p.vertices.push_back(Vector(0.1, 0.2));
     p.vertices.push_back(Vector(0.6, 0.4));
@@ -443,7 +478,7 @@ int main() {
 
     std::vector<Polygon> s;
     s.push_back(p);
-    */
+    
 
    VoronoiDiagram V;
    V.points.resize(4);
@@ -456,5 +491,47 @@ int main() {
 
     save_frame(V.cells, "toto");
     save_svg(V.cells, "toto.svg");
-    return 0;
+    */
+
+
+   int N=30;
+
+   OptimalTransport ot;
+   ot.vor.points.resize(N);
+   ot.vor.weights.resize(N,0.0);
+
+   srand(42);
+
+   for(int i=0;i<20;i++){
+       ot.vor.points[i]=Vector(
+           0.05+0.10*((double)rand()/RAND_MAX),
+           0.05+0.10*((double)rand()/RAND_MAX)
+       );
+   }
+
+   ot.vor.points[20]=Vector(0.85,0.85);
+   ot.vor.points[21]=Vector(0.75,0.90);
+   ot.vor.points[22]=Vector(0.95,0.75);
+   ot.vor.points[23]=Vector(0.80,0.70);
+   ot.vor.points[24]=Vector(0.90,0.60);
+   ot.vor.points[25]=Vector(0.50,0.50);
+   ot.vor.points[26]=Vector(0.30,0.80);
+   ot.vor.points[27]=Vector(0.70,0.20);
+   ot.vor.points[28]=Vector(0.20,0.50);
+   ot.vor.points[29]=Vector(0.60,0.70);
+
+   ot.vor.compute();
+   save_svg(ot.vor.cells,"before_ot.svg",&ot.vor.points,"lightblue");
+   save_frame(ot.vor.cells,"before_ot");
+   ot.optimize();
+
+   save_svg(ot.vor.cells,"after_ot.svg",&ot.vor.points,"lightblue");
+   save_frame(ot.vor.cells,"after_ot");
+
+
+   for(int i=0;i<N;i++){
+       printf("cell %d: area=%f\n",i,ot.vor.cells[i].area());
+   }
+
+   return 0;
 }
